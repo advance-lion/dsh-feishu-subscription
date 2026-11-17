@@ -1,0 +1,60 @@
+{
+  "name": "dsh-feishu-subscription",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "description": "Experimental Feishu enterprise subscription adapter for DSH",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "cordis.patch.yml",
+    "locale",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": ">=0.2.0-rc.2 <0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.64.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/advance-lion/dsh-feishu-subscription.git"
+  },
+  "homepage": "https://github.com/advance-lion/dsh-feishu-subscription#readme",
+  "bugs": {
+    "url": "https://github.com/advance-lion/dsh-feishu-subscription/issues"
+  }
+}

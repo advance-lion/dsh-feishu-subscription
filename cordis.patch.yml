@@ -1,0 +1,3 @@
+- insert:
+    - id: feishu-subscription
+      name: dsh-feishu-subscription

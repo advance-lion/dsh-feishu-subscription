@@ -1,0 +1,8 @@
+node_modules/
+*.dpapi
+.credentials/
+*.har
+*.tgz
+*.dpapi.*
+login-profile/
+account-logins/
