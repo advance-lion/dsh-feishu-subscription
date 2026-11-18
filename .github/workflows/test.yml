@@ -17,9 +17,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm install --no-save --ignore-scripts @deepseek-ai/dsh-llm@0.2.0-rc.2
       - name: Create ephemeral fixture encryption key
         shell: bash
-        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEISHU_SUBSCRIPTION_VAULT_KEY=' + require('crypto').randomBytes(32).toString('base64') + '\n')"
+        run: node -e "const k=require('crypto').randomBytes(32).toString('base64'); console.log('::add-mask::'+k); require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEISHU_SUBSCRIPTION_VAULT_KEY=' + k + '\n')"
       - run: npm test
       - run: npm pack --ignore-scripts
