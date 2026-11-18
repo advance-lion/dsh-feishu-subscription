@@ -1,6 +1,8 @@
 # Feishu work-task visibility investigation
 
-Status: unresolved. Native archive remains a backup only; it is not enabled.
+Status: no verified true hiding. Native archive fallback is enabled in dev.4
+following the user's explicit choice, with mark-read and a Doubao desktop-banner
+preference check before generation.
 Findings below are observations of an authenticated test account on 2026-11-18,
 not a claim about every server version or tenant. No deletion operation is part
 of the plugin runtime.
@@ -23,7 +25,8 @@ user conversations must never be targets.
 | Native `BATCH_OPERATE_CONVERSATION(1125)`, `HIDE(5)` | Server returns `712010703`, downstream call failure. No position/list change. | Unsupported by this observation; cause not established. |
 | Message status `INVISIBLE(1)` | Request succeeds but the task remains in the recent chain. Restoring `AVAILABLE(0)` returns success yet message readback stays empty. | Not a safe reversible production mechanism. |
 | Message tag `HideInConvList(10)` | Present in returned message schema, absent from the chat query message schema. A subsequent mutation probe failed its baseline guard, so no tag was written. | No verified writable contract. |
-| Native archive | Client declares archive operations and its recent-list request excludes archived tasks. | Backup only; not exercised or enabled in this investigation. |
+| Native archive | An owned completed test task was unarchived into Recents, archived out of Recents, present in the archive, and retained 6 readable messages. | Enabled fallback in dev.4; not a no-history claim. |
+| Doubao desktop banner preference `145` | Pull returned `1`; sync to `0` and a separate pull confirmed persistence. | Checked before generation; failure prevents a model request. Account-wide within Doubao. |
 
 ## Scope and safeguards
 
@@ -40,10 +43,34 @@ record remains undeleted. The underlying message storage state has not been
 established. Do not infer recovery from a success code or reuse this damaged
 baseline for further mutation tests.
 
-The runtime does not call these experimental mutation routes. It continues to
-create ordinary work tasks; their visibility limitation remains documented.
-Do not introduce deletion, silently archive tasks, patch the user's native UI,
-or substitute consumer-model billing to claim that this requirement is complete.
+The runtime does not call the experimental HIDE/message-visibility routes.
+It archives only the new ID from a matching request-local ACK. Cleanup uses the
+original credential snapshot and an independent bounded signal on success,
+error, cancellation, or generator return. Partial batch failures are not success;
+mark-read is still attempted. No deletion endpoint is used. Running tasks may
+appear briefly; canceled cloud tasks may continue and later updates could
+reactivate them.
+
+## REA and notification verification (2026-11-18)
+
+REA 6.7.0 `analyze-javascript-application` successfully analyzed the bundled
+worklet main.js and three native notification modules with explicit node/time
+bounds. The initial broader run timed out; only subsequent successful bounded
+runs count as analysis evidence. Static analysis cannot establish the absence of
+an undocumented server feature; no verified no-history contract was found.
+
+Native notification source declares InPCBannerSwitch=145. The supported
+`/alice/user/config/pull` and `/alice/user/config/sync` routes persisted 0 for
+the authenticated account. No global Feishu notification settings were changed.
+This preference also affects Doubao tasks started outside DSH. Preference 154
+was absent in readback and is not written.
+
+Real archive verification uses command 1125 / operation 8, per-task success,
+independent recent/archive queries, and retained message readback. Read status
+uses command 2100. The damaged visibility probe was not used as a valid archive
+baseline. A new generation probe returned rate limit 710022004; no retry was
+made. End-to-end dev.4 model cleanup and complete absence of native background
+notification banners remain unverified.
 
 ## Remaining evidence needed
 
