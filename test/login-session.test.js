@@ -26,3 +26,10 @@ test('cancelling authentication clears the challenge and cannot complete login',
  await assert.rejects(()=>waitForFeishuSession({cookies:async()=>[],pages:()=>[page]},{headed:false,signal:controller.signal,onChallenge:c=>{challenges.push(c);if(c)controller.abort();}}),e=>e.name==='AbortError');
  assert.equal(challenges.at(-1),null);
 });
+test('a screenshot racing with successful login is discarded before publication',async()=>{
+ let authenticated=false;const challenges=[];
+ const page={goto:async()=>{},screenshot:async()=>{authenticated=true;return Buffer.from('authenticated-page-fixture');}};
+ const browser={cookies:async()=>authenticated?[{name:'session',value:'fixture'}]:[],pages:()=>[page]};
+ const result=await waitForFeishuSession(browser,{headed:false,onChallenge:c=>challenges.push(c)});
+ assert.equal(result[0].name,'session');assert.deepEqual(challenges,[null]);
+});
