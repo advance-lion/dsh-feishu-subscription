@@ -2,7 +2,7 @@
 
 通过飞书账号登录，在 DeepSeek Harness（DSH）中使用豆包工作的企业订阅模型。
 
-当前开发版本 **0.4.0-dev.1**，Windows 实验版；最近公开 Release 为 0.3.1。独立开发，非飞书、豆包或 DeepSeek 官方插件。
+当前开发版本 **0.4.0-dev.2**，实验版；最近公开 Release 为 0.3.1。独立开发，非飞书、豆包或 DeepSeek 官方插件。
 
 ## 功能
 
@@ -52,7 +52,7 @@ dsh --profile <你的Profile>
 
 ## 数据和限制
 
-登录凭据和账号库使用 Windows CurrentUser DPAPI 加密，保存在 `%LOCALAPPDATA%/dsh-feishu-subscription/`。仅支持 Windows；不要分享该目录或专用 Chrome 登录目录。
+Windows 登录凭据和账号库使用 CurrentUser DPAPI 加密，保存在 `%LOCALAPPDATA%/dsh-feishu-subscription/`。开发版 macOS/Linux 加密方式见下文。不要分享凭据目录或专用 Chrome 登录目录。
 
 “退出登录”清空本插件保存的全部账号，不退出飞书客户端。每个账号有独立“移除”按钮，确认后仅移除该条目；取消保留原状。移除活跃账号后不会自动选择其他账号。
 
@@ -73,7 +73,7 @@ npm test
 npm pack --ignore-scripts
 ```
 
-测试需安装符合 peer 范围的官方 `@deepseek-ai/dsh-llm`。18 项测试覆盖账号迁移与隔离、加密、SSE 增量、工具协议、宿主路由、企业明细分页、金额合计及隐私过滤。0.3.1 安装包已在仅包含官方基础组件和本插件的独立 DSH Profile 安装、启动并验证额度页面，无页面异常。
+测试需安装符合 peer 范围的官方 `@deepseek-ai/dsh-llm`。25 项测试覆盖账号迁移与隔离、加密、SSE 增量、工具协议、宿主路由、企业明细分页、金额合计及隐私过滤。0.3.1 安装包已在仅包含官方基础组件和本插件的独立 DSH Profile 安装、启动并验证额度页面，无页面异常。
 
 ## 0.4.0 开发验收进度
 
@@ -87,4 +87,6 @@ Windows 继续使用原有 DPAPI，不改变既有账号文件。macOS 使用 Ap
 
 无桌面 Linux 可通过进程环境 `FEISHU_SUBSCRIPTION_VAULT_KEY` 提供 32 字节 Base64 密钥；密钥需要长期保存、保密，并与加密文件分开管理。更换或丢失密钥会导致旧文件无法解密。首次钥匙串密钥创建由跨进程锁保护；如果创建过程中进程崩溃并留下 vault-key-create.lock，需要确认没有其他初始化进程后移除该空锁目录再试。
 
-该后端已通过加密往返、篡改/错误密钥拒绝、路径和显式服务器密钥测试；当前机器未安装 WSL，尚未在 macOS/Linux 真机验收，也尚未完成 Linux 无桌面浏览器登录流程。不能据此宣称全平台已可用。
+该后端已通过加密往返、篡改/错误密钥拒绝、路径和显式服务器密钥测试；当前机器未安装 WSL，尚未在 macOS/Linux 真机验收，Linux 无桌面浏览器登录已实现设置页展示二维码，并在 Windows 上以 headless Chrome 验证二维码显示和取消清理；尚未完成 Linux 真机扫码、换票及模型调用，不能据此宣称全平台已可用。
+
+无桌面 Linux 默认在设置页展示远端 Chrome 的实时登录页截图，每 5 秒更新，由本人扫码确认。桌面系统保持独立 Chrome 登录窗口；可用插件配置 `loginHeadless: true` 测试页面内扫码。此模式只展示登录页面，不提供远程点击，遇到必须手动点击或验证码的分支需使用有桌面环境的登录。成功、取消或超时后清除页面中的截图。服务器需要已安装 Chrome。

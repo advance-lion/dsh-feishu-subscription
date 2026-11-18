@@ -7,24 +7,26 @@ import {rm} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {dataDirectory} from './lib/paths.js';
+import {defaultHeaded} from './lib/login-session.js';
 export const name='dsh-feishu-subscription';
 export const inject=['llm'];
 export function apply(ctx,config={}){
   const adapter=new FeishuAdapter(config);
   const accounts=new AccountStore(config.credentialFile);
+  const loginHeadless=config.loginHeadless===true||!defaultHeaded();
   ctx.effect(()=>ctx.llm.registerAdapter(['feishu-subscription'],adapter));
-  let loginJob,loginState='idle',controller;
+  let loginJob,loginState='idle',controller,loginChallenge=null;
   const startLogin=(fresh=false)=>{
     if(loginJob)return;
-    controller=new AbortController();loginState='starting';
+    controller=new AbortController();loginState='starting';loginChallenge=null;
     const temporary=path.join(path.dirname(config.credentialFile||credentialPath()),'login-'+randomUUID()+'.dpapi');
     const profile=fresh?newLoginProfile():undefined;
-    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),signal:controller.signal,onState:state=>{loginState=state;}})
+    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),headed:!loginHeadless,signal:controller.signal,onState:state=>{loginState=state;},onChallenge:value=>{loginChallenge=value;}})
       .then(async()=>{await accounts.add(await loadCredentials(temporary));adapter.invalidate();ctx.emit('llm/adapters-updated');loginState='authenticated';})
       .catch(error=>{loginState=error.message;}).finally(async()=>{
         await rm(temporary,{force:true});
         if(profile){const parent=path.resolve(dataDirectory(),'account-logins');const resolved=path.resolve(profile);if(resolved.startsWith(parent+path.sep))await rm(resolved,{recursive:true,force:true,maxRetries:3,retryDelay:200}).catch(()=>{});}
-        loginJob=undefined;
+        loginJob=undefined;loginChallenge=null;
       });
   };
   const handle=async(endpoint,payload={})=>{
@@ -40,7 +42,7 @@ export function apply(ctx,config={}){
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.4.0-dev.1'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,loginHeadless,loginChallenge:loginJob?loginChallenge:null,version:'0.4.0-dev.2'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请确认移除账号。','请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
