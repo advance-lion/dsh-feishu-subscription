@@ -22,3 +22,33 @@ jobs:
         run: node -e "const k=require('crypto').randomBytes(32).toString('base64'); console.log('::add-mask::'+k); require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEISHU_SUBSCRIPTION_VAULT_KEY=' + k + '\n')"
       - run: npm test
       - run: npm pack --ignore-scripts
+  native-keychain:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      DSH_NATIVE_KEYRING_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install Secret Service on disposable Linux runner
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring dbus-x11
+      - name: Verify real macOS Keychain
+        if: runner.os == 'macOS'
+        run: node --test test/native-keyring.test.js
+      - name: Verify real Linux Secret Service
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dbus-run-session -- bash -euc '
+            node -e "process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"hex\"))" | gnome-keyring-daemon --unlock --components=secrets
+            node --test test/native-keyring.test.js
+          '
