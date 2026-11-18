@@ -30,18 +30,20 @@ export function apply(ctx,config={}){
     try{
       if(endpoint.endsWith('/login')){startLogin(payload.fresh===true);return {ok:true,value:{loginState}};}
       if(endpoint.endsWith('/cancel')){controller?.abort();await loginJob;return {ok:true,value:{cancelled:true}};}
-      if(endpoint.endsWith('/logout')||endpoint.endsWith('/switch')){
+      if(endpoint.endsWith('/logout')||endpoint.endsWith('/switch')||endpoint.endsWith('/remove')){
         if(loginJob)throw Error('请先取消正在进行的登录。');
-        if(endpoint.endsWith('/logout'))await accounts.logout(payload.id);else await accounts.switch(payload.id);
+        if(endpoint.endsWith('/logout'))await accounts.logout();
+        else if(endpoint.endsWith('/remove')){if(payload.confirmed!==true)throw Error('请确认移除账号。');await accounts.remove(payload.id);}
+        else await accounts.switch(payload.id);
         adapter.invalidate();ctx.emit('llm/adapters-updated');return {ok:true,value:await accounts.list()};
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1'}};
-    }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.4.0-dev.1'}};
+    }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请确认移除账号。','请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
-    for(const action of ['status','models','login','logout','switch','quota','cancel']){
+    for(const action of ['status','models','login','logout','switch','remove','quota','cancel']){
       const method='feishu-subscription/'+action;
       child.effect(()=>child.connection.fetch.register({path:'/api/'+method,methods:['POST'],requestBody:'buffered',async fetch(request){
         if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return new Response('JSON required',{status:415});
