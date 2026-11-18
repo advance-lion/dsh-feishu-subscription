@@ -1,6 +1,6 @@
 {
   "name": "dsh-feishu-subscription",
-  "version": "0.4.0-dev.2",
+  "version": "0.4.0-dev.3",
   "private": true,
   "type": "module",
   "description": "Experimental Feishu enterprise subscription adapter for DSH",
@@ -16,6 +16,7 @@
     "lib",
     "cordis.patch.yml",
     "locale",
+    "scripts/acceptance-tools.mjs",
     "README.md"
   ],
   "dsh": {
@@ -41,7 +42,8 @@
     }
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "acceptance:tools": "node scripts/acceptance-tools.mjs"
   },
   "dependencies": {
     "playwright-core": "^1.64.1"

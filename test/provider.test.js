@@ -43,6 +43,14 @@ test('DSH adapter accepts native fetch responses and sends Passport plus attribu
   assert.equal(toolChunks.some(e=>e.type==='text-delta'),false);assert.equal(toolChunks.filter(e=>e.type==='tool-call-delta').length,1);assert.equal(toolChunks.at(-1).reason.kind,'tool-calls');
   globalThis.fetch=async()=>new Response(patch('partial')+frame('STREAM_ERROR',{error_code:710022002,error_msg:'blocked'}),{headers:{'Content-Type':'text/event-stream'}});
   const late=[];await assert.rejects(async()=>{for await(const e of adapter.stream({model:'seed-lite-7b',messages:[]}))late.push(e);},e=>e.code==='SHARK_BLOCK');assert.equal(late.some(e=>e.type==='finish'),false);assert.equal(late.find(e=>e.type==='text-delta').text,'partial');
+  for(const response of [
+   ()=>new Response(frame('STREAM_ERROR',{error_code:710022004,error_msg:'rate limited'}),{headers:{'Content-Type':'text/event-stream'}}),
+   ()=>new Response('Too many requests',{status:429})
+  ]){
+   let attempts=0;globalThis.fetch=async()=>{attempts++;return response();};const limited=[];
+   await assert.rejects(async()=>{for await(const e of adapter.stream({model:'seed-lite-7b',messages:[]}))limited.push(e);},e=>e.code==='RATE_LIMIT'&&!e.message.includes('登录'));
+   assert.equal(attempts,1);assert.equal(limited.some(e=>e.type==='finish'),false);
+  }
   globalThis.fetch=async()=>new Response(patch('partial')+frame('CHUNK_DELTA',{text:' discarded'})+ended,{headers:{'Content-Type':'text/event-stream'}});
   const stop=new AbortController(),cancelled=adapter.stream({model:'seed-lite-7b',messages:[],signal:stop.signal});await cancelled.next();await cancelled.next();stop.abort();await assert.rejects(()=>cancelled.next(),e=>e.code==='ABORTED');
  }finally{globalThis.fetch=originalFetch;await rm(dir,{recursive:true,force:true});}
