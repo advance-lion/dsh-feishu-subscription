@@ -1,0 +1,25 @@
+name: Plugin regression
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm install --no-save --ignore-scripts @deepseek-ai/dsh-llm@0.2.0-rc.2
+      - name: Create ephemeral fixture encryption key
+        shell: bash
+        run: node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEISHU_SUBSCRIPTION_VAULT_KEY=' + require('crypto').randomBytes(32).toString('base64') + '\n')"
+      - run: npm test
+      - run: npm pack --ignore-scripts

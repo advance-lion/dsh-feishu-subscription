@@ -6,6 +6,7 @@ import {credentialPath,loadCredentials} from './lib/credentials.js';
 import {rm} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {dataDirectory} from './lib/paths.js';
 export const name='dsh-feishu-subscription';
 export const inject=['llm'];
 export function apply(ctx,config={}){
@@ -22,7 +23,7 @@ export function apply(ctx,config={}){
       .then(async()=>{await accounts.add(await loadCredentials(temporary));adapter.invalidate();ctx.emit('llm/adapters-updated');loginState='authenticated';})
       .catch(error=>{loginState=error.message;}).finally(async()=>{
         await rm(temporary,{force:true});
-        if(profile){const parent=path.resolve(process.env.LOCALAPPDATA,'dsh-feishu-subscription','account-logins');const resolved=path.resolve(profile);if(resolved.startsWith(parent+path.sep))await rm(resolved,{recursive:true,force:true,maxRetries:3,retryDelay:200}).catch(()=>{});}
+        if(profile){const parent=path.resolve(dataDirectory(),'account-logins');const resolved=path.resolve(profile);if(resolved.startsWith(parent+path.sep))await rm(resolved,{recursive:true,force:true,maxRetries:3,retryDelay:200}).catch(()=>{});}
         loginJob=undefined;
       });
   };

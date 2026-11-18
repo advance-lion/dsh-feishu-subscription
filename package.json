@@ -56,5 +56,8 @@
   "homepage": "https://github.com/advance-lion/dsh-feishu-subscription#readme",
   "bugs": {
     "url": "https://github.com/advance-lion/dsh-feishu-subscription/issues"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.1.2"
   }
 }
