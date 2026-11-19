@@ -51,6 +51,7 @@ test('DSH adapter accepts native fetch responses and sends Passport plus attribu
   globalThis.fetch=async(url,request)=>{
    const body=JSON.parse(request.body),route=new URL(url).pathname;
    assert.match(request.headers.Cookie,/passport_access_token=test-only-not-a-real-token/);
+   assert.equal(request.headers['Content-Type'],route.startsWith('/im/')||route.startsWith('/alice/')?'application/json; encoding=utf-8':'application/json');
    if(route==='/alice/user/config/pull')return Response.json({code:0,data:{configs:prepareFails?[]:[{object:145,value:'0',version:1}]}});
    if(route==='/im/conversation/batch_operate'){archiveCount++;assert.deepEqual(body.uplink_body.batch_operate_conv_uplink_body.conversation_id_list,[ownId]);assert.equal(request.signal.aborted,false);return Response.json({status_code:0,downlink_body:{batch_operate_conv_downlink_body:{has_failure:archiveFails,conversation_list:[{conversation_id:ownId,success:!archiveFails}]}}});}
    if(route==='/im/message/mark_conv_read'){readCount++;assert.equal(request.signal.aborted,false);return Response.json({status_code:0});}
