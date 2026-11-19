@@ -2,13 +2,13 @@
 
 通过飞书账号登录，在 DeepSeek Harness（DSH）中使用豆包工作的企业订阅模型。
 
-当前版本 **0.3.2**，Windows 实验版。独立开发，非飞书、豆包或 DeepSeek 官方插件。
+当前版本 **0.4.0**，跨平台预发布版，支持 Windows / macOS 桌面和 Linux Web。独立开发，非飞书、豆包或 DeepSeek 官方插件。
 
 ## 诊断与安全验证
 
 基于 0.3.1 的诊断版，保留模型目录读取逻辑。设置页的“诊断日志”显示最近 150 条运行记录，可刷新、复制、清空，重启后清除；不记录对话正文、凭据或验证码。
 
-模型服务明确要求验证码时，弹出独立 Chrome，由本人完成官方验证。成功后只恢复原消息一次：保持消息标识，创建新的发送会话，并携带本次官方 SDK 返回的验证关联标识。取消、超时、重复验证要求或已收到任务 ACK/正文时不循环重试。切换账号、退出登录或停止请求会取消等待。需要本机有桌面和 Chrome。
+模型服务明确要求验证码时，桌面弹出独立 Chrome，由本人完成官方验证。无桌面 Linux 则在 DSH 网页内显示官方页面预览，由本人点击或拖动完成。成功后只恢复原消息一次：保持消息标识，创建新的发送会话，并携带本次官方 SDK 返回的验证关联标识。取消、超时、重复验证要求或已收到任务 ACK/正文时不循环重试。切换账号、退出登录或停止请求会取消等待。
 
 已在桌面 DSH 验证人工验证码后恢复原请求、完整回复和任务归档；首轮与后续流式显示也已由用户确认。验证是否出现由上游决定，并非所有模型和上游错误均已覆盖。
 
@@ -22,11 +22,11 @@
 
 ## 安装
 
-要求：Windows、已安装 Chrome、有效的飞书账号和对应模型权限。CLI 使用 Node.js 22 或更高版本。
+要求：Windows / macOS 桌面，或 Linux 上的 DSH Web；DSH 所在机器安装 Google Chrome，有效的飞书账号和对应模型权限。CLI 使用 Node.js 22 或更高版本。Linux 以普通用户运行 Chrome，保留浏览器沙箱。
 
 验证环境：Windows，DSH CLI/Web 0.2.0-rc.2、桌面 DSH 0.2.2-rc.3。桌面已验证账号模型目录、人工验证恢复、流式回复、归档与已读、豆包横幅关闭及不重启热更新；最新首次提示已在独立 Web Profile 验收。DSH 是开发预览版，其他宿主版本的兼容性需验证。
 
-从 [Releases](https://github.com/advance-lion/dsh-feishu-subscription/releases) 下载 `dsh-feishu-subscription-0.3.2.tgz`。
+从 [Releases](https://github.com/advance-lion/dsh-feishu-subscription/releases) 下载 `dsh-feishu-subscription-0.4.0.tgz`。各平台使用同一安装包，由包管理器安装对应平台的可选钥匙串依赖。
 
 **桌面版：**插件 → 添加插件 → 安装第三方插件，选择下载的 `.tgz` 文件并启用插件及组件。升级通过应用内插件管理器完成；桌面 Profile 由 Electron 管理，不能用外部 CLI 修改。
 
@@ -39,6 +39,18 @@ dsh --profile <你的Profile>
 
 安装不会更改默认模型。不要继续使用存在宿主 API 路由冲突的旧版 0.2.0。
 
+也可在“添加插件”输入 GitHub 仓库链接 `https://github.com/advance-lion/dsh-feishu-subscription` 或本地解包目录。桌面仍应使用应用内安装入口。
+
+### Mac 与 Linux 配置
+
+- **macOS：**安装 Chrome，并允许本插件访问当前用户的系统钥匙串。插件数据保存在 `~/Library/Application Support/dsh-feishu-subscription/`。
+- **Linux 桌面：**需要已解锁、可持久保存的 Secret Service（如 GNOME Keyring）及用户 D-Bus 会话。数据使用 `$XDG_DATA_HOME/dsh-feishu-subscription/`，未设置时使用 `~/.local/share/dsh-feishu-subscription/`。
+- **无桌面 Linux：**没有系统钥匙串时，必须通过服务环境变量 `FEISHU_SUBSCRIPTION_VAULT_KEY` 提供固定的 32 字节 Base64 密钥。可用 `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` 在自己的终端生成一次，存入仅该服务用户可读的环境配置。每次启动必须使用同一密钥；丢失密钥需重新登录，不能解密已有账号库。插件不会回退为明文保存。
+- Linux 无 `DISPLAY` / `WAYLAND_DISPLAY` 时自动启动无头 Chrome。在 DSH 中点“添加账号”后，从内嵌页面预览扫码；需要验证码时同样由本人在预览中完成。登录超时 4 分钟，安全验证超时 10 分钟。预览只支持扫码、点击和拖动，不提供密码输入或通用远程桌面。
+- 页面预览只经过 DSH 的连接通道，不开放远程调试端口。不应公开暴露未经访问控制的 DSH 服务；远程使用可通过 SSH 转发本地监听的 Web 端口。
+
+Windows 继续使用原有 DPAPI 与原目录，不迁移现有账号。macOS / Linux 的系统钥匙串存储随机加密密钥，账号文件使用 AES-256-GCM 加密；密钥不随安装包发布。
+
 ### 首次提示、飞书侧提醒与归档
 
 安装并首次启用后，插件会弹出“使用前提示”：如出现安全验证窗口，请在该窗口手动完成并提交；成功后自动继续原请求，无需重发。关闭窗口或等待超过 10 分钟会取消本次恢复。确认启用后，在模型调用前关闭当前豆包账号的桌面横幅；这也影响该账号在飞书中直接发起的豆包任务，不改变飞书其他消息提醒。选择“暂不开启”仍可正常使用模型。
@@ -50,7 +62,7 @@ dsh --profile <你的Profile>
 ## 登录和使用
 
 1. 打开 DSH“设置 → 飞书订阅 → 添加账号”。
-2. 在独立 Chrome 窗口中本人完成飞书扫码或账号确认，等待插件显示“认证有效”。
+2. 在独立 Chrome 窗口中本人完成飞书扫码或账号确认；无桌面 Linux 在 DSH 页面预览中扫码，等待插件显示“认证有效”。
 3. 从会话模型菜单选择“飞书 · 豆包工作（企业订阅）”下的模型，再发送消息。
 4. 在设置页刷新企业用量、查看扣点明细或管理账号。
 
@@ -68,7 +80,7 @@ dsh --profile <你的Profile>
 
 ## 数据和限制
 
-登录凭据和账号库使用 Windows CurrentUser DPAPI 加密，保存在 `%LOCALAPPDATA%/dsh-feishu-subscription/`。仅支持 Windows；不要分享该目录或专用 Chrome 登录目录。
+Windows 登录凭据和账号库继续使用 CurrentUser DPAPI 加密，保存在 `%LOCALAPPDATA%/dsh-feishu-subscription/`。macOS / Linux 路径与加密见上文。不要分享插件数据目录、专用 Chrome 登录目录或服务器加密密钥。
 
 退出登录移除该账号在本插件中的凭据，不退出飞书客户端，也不会自动切换到另一个账号。
 
@@ -89,4 +101,6 @@ npm test
 npm pack --ignore-scripts
 ```
 
-测试需安装符合 peer 范围的官方 `@deepseek-ai/dsh-llm`。29 项测试覆盖账号迁移与隔离、加密、SSE 增量、工具协议、宿主路由、企业明细分页、金额合计及隐私过滤。运行时基于已验收的 debug.6，首次提示沿用已验收的 debug.7；发布包只调整版本与说明。
+测试覆盖账号迁移与隔离、加密、SSE 增量、工具协议、宿主路由、企业明细分页、金额合计及隐私过滤。跨平台工作流另验证原生 macOS Keychain、Linux Secret Service、真实 Chrome 无头预览交互与安装包进入官方 DSH Profile。CI 使用合成账号和验证码组件，不访问真实企业账号。
+
+0.4.0 保留 0.3.2 的模型请求、流式解析和静默归档实现。Windows 已有真实账号验收；macOS / Linux 的真实飞书扫码、企业模型调用及端到端验证码仍需目标环境账号实测，不能将 CI 通过等同为这部分验收完成。

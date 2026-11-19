@@ -7,11 +7,15 @@ import {rm} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {QuietPreference} from './lib/quiet-preference.js';
+import {dataDirectory} from './lib/paths.js';
+import {BrowserViews} from './lib/browser-view.js';
+import {verifyInWindow} from './lib/verification-window.js';
 export const name='dsh-feishu-subscription';
 export const inject=['llm'];
 export function apply(ctx,config={}){
   const quietPreference=new QuietPreference(config.quietNoticeFile||path.join(path.dirname(config.credentialFile||credentialPath()),'quiet-preference.json'));
-  const adapter=new FeishuAdapter({...config,quietPreference});
+  const views=new BrowserViews();
+  const adapter=new FeishuAdapter({...config,quietPreference,verify:options=>verifyInWindow({...options,view:views})});
   const accounts=new AccountStore(config.credentialFile);
   ctx.effect(()=>ctx.llm.registerAdapter(['feishu-subscription'],adapter));
   let loginJob,loginState='idle',controller;
@@ -20,16 +24,19 @@ export function apply(ctx,config={}){
     controller=new AbortController();loginState='starting';
     const temporary=path.join(path.dirname(config.credentialFile||credentialPath()),'login-'+randomUUID()+'.dpapi');
     const profile=fresh?newLoginProfile():undefined;
-    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),signal:controller.signal,onState:state=>{loginState=state;}})
+    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),signal:controller.signal,view:views,onState:state=>{loginState=state;}})
       .then(async()=>{await accounts.add(await loadCredentials(temporary));adapter.invalidate();ctx.emit('llm/adapters-updated');loginState='authenticated';})
       .catch(error=>{loginState=error.message;}).finally(async()=>{
         await rm(temporary,{force:true});
-        if(profile){const parent=path.resolve(process.env.LOCALAPPDATA,'dsh-feishu-subscription','account-logins');const resolved=path.resolve(profile);if(resolved.startsWith(parent+path.sep))await rm(resolved,{recursive:true,force:true,maxRetries:3,retryDelay:200}).catch(()=>{});}
+        if(profile){const parent=path.resolve(dataDirectory(),'account-logins');const resolved=path.resolve(profile);if(resolved.startsWith(parent+path.sep))await rm(resolved,{recursive:true,force:true,maxRetries:3,retryDelay:200}).catch(()=>{});}
         loginJob=undefined;
       });
   };
   const handle=async(endpoint,payload={})=>{
     try{
+      if(endpoint.endsWith('/browser-views'))return {ok:true,value:views.list()};
+      if(endpoint.endsWith('/browser-snapshot'))return {ok:true,value:await views.snapshot(payload.id)};
+      if(endpoint.endsWith('/browser-input')){await views.input(payload);return {ok:true,value:{accepted:true}};}
       if(endpoint.endsWith('/quiet-notice'))return {ok:true,value:await quietPreference.status()};
       if(endpoint.endsWith('/quiet-notice-ack'))return {ok:true,value:await quietPreference.acknowledge(payload)};
       if(endpoint.endsWith('/diagnostics'))return {ok:true,value:adapter.diagnostics.list()};
@@ -44,11 +51,11 @@ export function apply(ctx,config={}){
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,quietWarning:adapter.quietWarning,version:'0.3.2'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,quietWarning:adapter.quietWarning,version:'0.4.0'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
-    for(const action of ['status','models','login','logout','switch','quota','cancel','diagnostics','diagnostics-clear','quiet-notice','quiet-notice-ack']){
+    for(const action of ['status','models','login','logout','switch','quota','cancel','diagnostics','diagnostics-clear','quiet-notice','quiet-notice-ack','browser-views','browser-snapshot','browser-input']){
       const method='feishu-subscription/'+action;
       child.effect(()=>child.connection.fetch.register({path:'/api/'+method,methods:['POST'],requestBody:'buffered',async fetch(request){
         if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return new Response('JSON required',{status:415});
@@ -59,7 +66,7 @@ export function apply(ctx,config={}){
       }}));
     }
   });
-  ctx.effect(()=>()=>{controller?.abort();adapter.cancelRequests();});
+  ctx.effect(()=>()=>{controller?.abort();adapter.cancelRequests();views.cancelAll();});
   ctx.inject(['commands'],commandCtx=>{
     commandCtx.effect(()=>commandCtx.commands.register({
       name:'feishu',description:'飞书豆包工作：登录、登录状态与企业模型目录',input:{hint:'login | status | models'},recordInput:false,

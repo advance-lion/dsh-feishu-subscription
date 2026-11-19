@@ -1,6 +1,6 @@
 {
   "name": "dsh-feishu-subscription",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Experimental Feishu enterprise subscription adapter for DSH",
@@ -56,5 +56,11 @@
   "homepage": "https://github.com/advance-lion/dsh-feishu-subscription#readme",
   "bugs": {
     "url": "https://github.com/advance-lion/dsh-feishu-subscription/issues"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.1.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2"
   }
 }

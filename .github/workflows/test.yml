@@ -1,0 +1,70 @@
+name: Plugin regression
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Create ephemeral fixture encryption key
+        shell: bash
+        run: node -e "const k=require('crypto').randomBytes(32).toString('base64'); console.log('::add-mask::'+k); require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEISHU_SUBSCRIPTION_VAULT_KEY=' + k + '\n')"
+      - run: npm test
+      - run: npx playwright-core install chrome
+      - name: Real Chrome headless challenge and manual-input bridge
+        run: node --test test/browser-integration.test.js
+        env:
+          DSH_BROWSER_TEST: '1'
+      - run: npm pack --ignore-scripts
+      - name: Install official DSH host
+        run: npm install -g @deepseek-ai/dsh@0.2.0-rc.2 --ignore-scripts
+      - name: Install packed plugin into disposable DSH profile
+        shell: bash
+        run: |
+          export DSH_HOME="$RUNNER_TEMP/feishu-dsh-smoke"
+          dsh --profile cross-platform --from-default-profile web --dump-config > /dev/null
+          dsh plugin --profile cross-platform add "$GITHUB_WORKSPACE/dsh-feishu-subscription-0.4.0.tgz"
+          dsh --profile cross-platform --dump-config > host-config.yml
+          node scripts/check-installed.mjs host-config.yml
+          node scripts/host-smoke.mjs "$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" cross-platform
+  native-keychain:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      DSH_NATIVE_KEYRING_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install Secret Service on disposable Linux runner
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring dbus-x11
+      - name: Verify real macOS Keychain
+        if: runner.os == 'macOS'
+        run: node --test test/native-keyring.test.js
+      - name: Verify real Linux Secret Service
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dbus-run-session -- bash -euc '
+            node -e "process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"hex\"))" | gnome-keyring-daemon --unlock --components=secrets
+            node --test test/native-keyring.test.js
+          '
