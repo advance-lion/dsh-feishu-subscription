@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {app
 test('plugin adds only exact routes and never occupies the host API interceptor',async()=>{
  const routes=[];const connection={rpc:{intercept(){throw Error('Shared host interceptor must remain owned by DSH');}},fetch:{register(route){routes.push(route);return ()=>{};}}};
  const child={connection,effect:fn=>fn()};const ctx={llm:{registerAdapter:()=>()=>{}},effect:fn=>fn(),inject:(services,fn)=>{if(services.includes('connection'))fn(child);},emit(){}};
- apply(ctx);assert.deepEqual(routes.map(r=>r.path).sort(),['cancel','diagnostics','diagnostics-clear','login','logout','models','quota','status','switch'].map(a=>'/api/feishu-subscription/'+a));
+ apply(ctx);assert.deepEqual(routes.map(r=>r.path).sort(),['cancel','diagnostics','diagnostics-clear','login','logout','models','quiet-notice','quiet-notice-ack','quota','status','switch'].map(a=>'/api/feishu-subscription/'+a));
  for(const action of ['diagnostics','diagnostics-clear']){
  const route=routes.find(r=>r.path.endsWith('/'+action));
  const response=await route.fetch(new Request('http://localhost'+route.path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:'diagnostic-test',method:'feishu-subscription/'+action,payload:{}})}));

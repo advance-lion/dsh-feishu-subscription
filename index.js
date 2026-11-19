@@ -6,10 +6,12 @@ import {credentialPath,loadCredentials} from './lib/credentials.js';
 import {rm} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {QuietPreference} from './lib/quiet-preference.js';
 export const name='dsh-feishu-subscription';
 export const inject=['llm'];
 export function apply(ctx,config={}){
-  const adapter=new FeishuAdapter(config);
+  const quietPreference=new QuietPreference(config.quietNoticeFile||path.join(path.dirname(config.credentialFile||credentialPath()),'quiet-preference.json'));
+  const adapter=new FeishuAdapter({...config,quietPreference});
   const accounts=new AccountStore(config.credentialFile);
   ctx.effect(()=>ctx.llm.registerAdapter(['feishu-subscription'],adapter));
   let loginJob,loginState='idle',controller;
@@ -28,6 +30,8 @@ export function apply(ctx,config={}){
   };
   const handle=async(endpoint,payload={})=>{
     try{
+      if(endpoint.endsWith('/quiet-notice'))return {ok:true,value:await quietPreference.status()};
+      if(endpoint.endsWith('/quiet-notice-ack'))return {ok:true,value:await quietPreference.acknowledge(payload)};
       if(endpoint.endsWith('/diagnostics'))return {ok:true,value:adapter.diagnostics.list()};
       if(endpoint.endsWith('/diagnostics-clear'))return {ok:true,value:adapter.diagnostics.clear()};
       if(endpoint.endsWith('/login')){startLogin(payload.fresh===true);return {ok:true,value:{loginState}};}
@@ -40,11 +44,11 @@ export function apply(ctx,config={}){
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1-debug.2'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,quietWarning:adapter.quietWarning,version:'0.3.1-debug.3'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
-    for(const action of ['status','models','login','logout','switch','quota','cancel','diagnostics','diagnostics-clear']){
+    for(const action of ['status','models','login','logout','switch','quota','cancel','diagnostics','diagnostics-clear','quiet-notice','quiet-notice-ack']){
       const method='feishu-subscription/'+action;
       child.effect(()=>child.connection.fetch.register({path:'/api/'+method,methods:['POST'],requestBody:'buffered',async fetch(request){
         if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return new Response('JSON required',{status:415});
