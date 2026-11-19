@@ -49,6 +49,7 @@ dsh --profile <你的Profile>
 - **Linux 桌面：**需要已解锁、可持久保存的 Secret Service（如 GNOME Keyring）及用户 D-Bus 会话。数据使用 `$XDG_DATA_HOME/dsh-feishu-subscription/`，未设置时使用 `~/.local/share/dsh-feishu-subscription/`。
 - **无桌面 Linux：**没有系统钥匙串时，必须通过服务环境变量 `FEISHU_SUBSCRIPTION_VAULT_KEY` 提供固定的 32 字节 Base64 密钥。可用 `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` 在自己的终端生成一次，存入仅该服务用户可读的环境配置。每次启动必须使用同一密钥；丢失密钥需重新登录，不能解密已有账号库。插件不会回退为明文保存。
 - Linux 无 `DISPLAY` / `WAYLAND_DISPLAY` 时自动启动无头 Chrome。在 DSH 中点“添加账号”后，从内嵌页面预览扫码；需要验证码时同样由本人在预览中完成。登录超时 4 分钟，安全验证超时 10 分钟。预览只支持扫码、点击和拖动，不提供密码输入或通用远程桌面。
+- 如服务环境存在 `DISPLAY`，但浏览器不在当前用户面前，可在该插件的 Profile patch `config` 中设置 `browserHeaded: false`，强制使用内嵌预览；默认不需要配置，Windows / Mac 桌面仍使用独立 Chrome。
 - 页面预览只经过 DSH 的连接通道，不开放远程调试端口。不应公开暴露未经访问控制的 DSH 服务；远程使用可通过 SSH 转发本地监听的 Web 端口。
 
 Windows 继续使用原有 DPAPI 与原目录，不迁移现有账号。macOS / Linux 的系统钥匙串存储随机加密密钥，账号文件使用 AES-256-GCM 加密；密钥不随安装包发布。

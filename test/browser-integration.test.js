@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {getPlaywright} from '../lib/playwright-runtime.js';
 import {BrowserViews} from '../lib/browser-view.js';
 import {verifyInWindow} from '../lib/verification-window.js';
+import {waitForFeishuSession} from '../lib/login-session.js';
 
 // Local fixture only: CI never logs in to Feishu or solves an upstream CAPTCHA.
 const enabled=process.env.DSH_BROWSER_TEST==='1';
@@ -16,6 +17,16 @@ test('actual Chrome headless view forwards human pointer events and verification
   assert.match((await views.snapshot(id)).image,/^data:image\/jpeg;base64,/);
   for(const type of ['down','up'])await views.input({id,type,x:.05,y:.05});
   assert.equal(await page.locator('button').textContent(),'clicked');detach();
+  const context=await browser.newContext({viewport:{width:1000,height:760}});
+  await context.route('https://my.feishu.cn/**',r=>r.fulfill({contentType:'text/html',body:'<button style="position:absolute;left:0;top:0;width:200px;height:100px" onclick="document.cookie=\'session=fixture-session;path=/;Secure\'">Fixture login</button>'}));
+  const login=waitForFeishuSession(context,{headed:false,view:views});
+  const deadline=Date.now()+10000;while(!views.list().length){if(Date.now()>deadline)throw Error('Login view not attached');await new Promise(r=>setTimeout(r,50));}
+  const loginId=views.list()[0].id;
+  assert.match((await views.snapshot(loginId)).image,/^data:image\/jpeg;base64,/);
+  for(const type of ['down','up'])await views.input({id:loginId,type,x:.05,y:.05});
+  assert.equal((await login).find(c=>c.name==='session').value,'fixture-session');
+  assert.deepEqual(views.list(),[]);await assert.rejects(()=>views.snapshot(loginId),/EXPIRED/);
+  await context.close();
  }finally{await browser.close();}
  // Use a fixture SDK that requires a real UI click before the success callback.
  // Intercept only inside this test; production always loads the official SDK.
@@ -30,5 +41,9 @@ test('actual Chrome headless view forwards human pointer events and verification
   const id=views.list()[0].id;
   for(const type of ['down','up'])await views.input({id,type,x:.05,y:.05});
   assert.equal((await result).fp,'verify_fixture_user');assert.deepEqual(views.list(),[]);
+  const cancelled=verifyInWindow({decision:{type:'verify'},session:{query:new URLSearchParams({aid:'497858'}),cookies:[]},view:views,headed:false});
+  const cancelDeadline=Date.now()+15000;while(!views.list().length){if(Date.now()>cancelDeadline)throw Error('Cancel view not attached');await new Promise(r=>setTimeout(r,50));}
+  await assert.rejects(async()=>{await views.input({id:views.list()[0].id,type:'cancel'});return cancelled;},/VERIFICATION_CANCELLED/);
+  assert.deepEqual(views.list(),[]);
  }finally{runtime.chromium.launch=original;views.cancelAll();}
 });

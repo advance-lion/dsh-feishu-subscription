@@ -15,7 +15,8 @@ export const inject=['llm'];
 export function apply(ctx,config={}){
   const quietPreference=new QuietPreference(config.quietNoticeFile||path.join(path.dirname(config.credentialFile||credentialPath()),'quiet-preference.json'));
   const views=new BrowserViews();
-  const adapter=new FeishuAdapter({...config,quietPreference,verify:options=>verifyInWindow({...options,view:views})});
+  const browserOptions=typeof config.browserHeaded==='boolean'?{headed:config.browserHeaded}:{};
+  const adapter=new FeishuAdapter({...config,quietPreference,verify:options=>verifyInWindow({...options,view:views,...browserOptions})});
   const accounts=new AccountStore(config.credentialFile);
   ctx.effect(()=>ctx.llm.registerAdapter(['feishu-subscription'],adapter));
   let loginJob,loginState='idle',controller;
@@ -24,7 +25,7 @@ export function apply(ctx,config={}){
     controller=new AbortController();loginState='starting';
     const temporary=path.join(path.dirname(config.credentialFile||credentialPath()),'login-'+randomUUID()+'.dpapi');
     const profile=fresh?newLoginProfile():undefined;
-    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),signal:controller.signal,view:views,onState:state=>{loginState=state;}})
+    loginJob=login({credentialFile:temporary,...(profile?{profileDir:profile}:{}),signal:controller.signal,view:views,...browserOptions,onState:state=>{loginState=state;}})
       .then(async()=>{await accounts.add(await loadCredentials(temporary));adapter.invalidate();ctx.emit('llm/adapters-updated');loginState='authenticated';})
       .catch(error=>{loginState=error.message;}).finally(async()=>{
         await rm(temporary,{force:true});
