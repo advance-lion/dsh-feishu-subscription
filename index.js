@@ -44,7 +44,7 @@ export function apply(ctx,config={}){
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,quietWarning:adapter.quietWarning,version:'0.3.1-debug.4'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,quietWarning:adapter.quietWarning,version:'0.3.1-debug.5'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{

@@ -6,7 +6,7 @@ import os from 'node:os';
 import {FeishuAdapter} from '../lib/provider.js';
 import {saveCredentials} from '../lib/credentials.js';
 const frame=(event,data)=>`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-test('DSH adapter accepts native fetch responses and sends Passport plus attribution',async()=>{
+test('DSH adapter accepts native fetch responses and sends Passport plus attribution',{timeout:30000},async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'feishu-provider-test-'));
  const credentialFile=path.join(dir,'test.dpapi');
  const originalFetch=globalThis.fetch;
@@ -64,5 +64,26 @@ test('DSH adapter accepts native fetch responses and sends Passport plus attribu
    if(generationFails)await assert.rejects(run,error=>error.code==='PROVIDER_ERROR');else{await run();assert.equal(values.find(e=>e.type==='text-delta').text,'quiet reply');assert.equal(values.at(-1).type,'finish');}
   }
   assert.equal(generations,4);assert.equal(archiveCount,4);assert.equal(readCount,4);assert.equal(adapter.quietWarning,true);
+  // Keep the upstream response open: the consumer must receive text without
+  // waiting for the tail or completion frames (a buffered adapter deadlocks).
+  adapter.quietPreference={status:async()=>({enabled:false})};let source;
+  const chunk=text=>frame('STREAM_CHUNK',{patch_op:[{patch_object:1,patch_value:{content_block:[{block_type:10000,block_id:'live',patch_type:1,content:{text_block:{text}}}]}}]});
+  globalThis.fetch=async()=>new Response(new ReadableStream({start(c){source=c;c.enqueue(new TextEncoder().encode(chunk('first')));}}),{headers:{'Content-Type':'text/event-stream'}});
+  const iterator=adapter.stream({model:'seed-lite-7b',messages:[]});
+  assert.equal((await iterator.next()).value.type,'block-start');
+  assert.deepEqual((await iterator.next()).value,{type:'text-delta',index:0,text:'first'});
+  source.enqueue(new TextEncoder().encode(chunk(' second')+frame('SSE_REPLY_END',{end_type:1})+frame('SSE_REPLY_END',{end_type:3})));source.close();
+  const rest=[];for await(const value of iterator)rest.push(value);
+  assert.equal(rest.find(e=>e.type==='text-delta').text,' second');assert.equal(rest.find(e=>e.type==='block-end').block.text,'first second');assert.equal(rest.at(-1).type,'finish');
+  let networkCancelled=false,requestSignal;const cleanupCalls=[];adapter.quietPreference={status:async()=>({enabled:true})};
+  globalThis.fetch=async(url,request)=>{
+   const body=JSON.parse(request.body),route=new URL(url).pathname;
+   if(route==='/alice/user/config/pull')return Response.json({code:0,data:{configs:[{object:145,value:'0'}]}});
+   if(route.startsWith('/im/')){cleanupCalls.push(route);assert.equal(request.signal.aborted,false);return Response.json({status_code:0,downlink_body:{batch_operate_conv_downlink_body:{conversation_list:[{conversation_id:'stopped-owned',success:true}]}}});}
+   requestSignal=request.signal;
+   return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode(frame('SSE_ACK',{ack_client_meta:{conversation_id:'stopped-owned',local_conversation_id:body.client_meta.local_conversation_id}})+chunk('partial')));},cancel(){networkCancelled=true;}}),{headers:{'Content-Type':'text/event-stream'}});
+  };
+  const stopped=adapter.stream({model:'seed-lite-7b',messages:[]});await stopped.next();assert.equal((await stopped.next()).value.text,'partial');await stopped.return();
+  assert.equal(networkCancelled,true);assert.equal(requestSignal.aborted,true);assert.equal(adapter.activeRequests.size,0);assert.equal(cleanupCalls.length,2);
  }finally{globalThis.fetch=originalFetch;await rm(dir,{recursive:true,force:true});}
 });

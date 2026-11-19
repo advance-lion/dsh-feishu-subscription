@@ -1,6 +1,6 @@
 {
   "name": "dsh-feishu-subscription",
-  "version": "0.3.1-debug.4",
+  "version": "0.3.1-debug.5",
   "private": true,
   "type": "module",
   "description": "Experimental Feishu enterprise subscription adapter for DSH",
