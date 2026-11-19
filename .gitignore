@@ -4,5 +4,7 @@ node_modules/
 *.har
 *.tgz
 *.dpapi.*
+*.enc
+*.enc.*
 login-profile/
 account-logins/

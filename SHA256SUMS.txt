@@ -1,1 +1,1 @@
-afea4d347ec298b403be0624087fe2d4885ae1a77864629860bc9f791fb150c0  dsh-feishu-subscription-0.3.2.tgz
+cddd8c0afc15fa0bce14b727fcda571bb55627620f48ad26df93fcf0441d142c  dsh-feishu-subscription-0.4.0.tgz
