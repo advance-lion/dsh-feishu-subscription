@@ -47,7 +47,6 @@ jobs:
     timeout-minutes: 10
     env:
       DSH_NATIVE_KEYRING_TEST: '1'
-      DSH_HOME: ${{ runner.temp }}/feishu-native-host-smoke
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,6 +57,8 @@ jobs:
       - name: Prepare packed plugin in actual DSH for native vault checks
         shell: bash
         run: |
+          export DSH_HOME="$RUNNER_TEMP/feishu-native-host-smoke"
+          echo "DSH_HOME=$DSH_HOME" >> "$GITHUB_ENV"
           npm install -g @deepseek-ai/dsh@0.2.0-rc.2 pnpm@10.34.9 --ignore-scripts
           npm pack --ignore-scripts
           dsh --profile native-vault --from-default-profile web --dump-config > /dev/null
