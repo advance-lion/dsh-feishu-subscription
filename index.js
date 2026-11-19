@@ -28,6 +28,8 @@ export function apply(ctx,config={}){
   };
   const handle=async(endpoint,payload={})=>{
     try{
+      if(endpoint.endsWith('/diagnostics'))return {ok:true,value:adapter.diagnostics.list()};
+      if(endpoint.endsWith('/diagnostics-clear'))return {ok:true,value:adapter.diagnostics.clear()};
       if(endpoint.endsWith('/login')){startLogin(payload.fresh===true);return {ok:true,value:{loginState}};}
       if(endpoint.endsWith('/cancel')){controller?.abort();await loginJob;return {ok:true,value:{cancelled:true}};}
       if(endpoint.endsWith('/logout')||endpoint.endsWith('/switch')){
@@ -37,11 +39,11 @@ export function apply(ctx,config={}){
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1-debug.1'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
-    for(const action of ['status','models','login','logout','switch','quota','cancel']){
+    for(const action of ['status','models','login','logout','switch','quota','cancel','diagnostics','diagnostics-clear']){
       const method='feishu-subscription/'+action;
       child.effect(()=>child.connection.fetch.register({path:'/api/'+method,methods:['POST'],requestBody:'buffered',async fetch(request){
         if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return new Response('JSON required',{status:415});
