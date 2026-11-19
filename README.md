@@ -2,7 +2,7 @@
 
 通过飞书账号登录，在 DeepSeek Harness（DSH）中使用豆包工作的企业订阅模型。
 
-当前版本 **0.3.1-debug.6**，Windows 实验版。独立开发，非飞书、豆包或 DeepSeek 官方插件。
+当前版本 **0.3.1-debug.7**，Windows 实验版。独立开发，非飞书、豆包或 DeepSeek 官方插件。
 
 ## 诊断与安全验证
 
