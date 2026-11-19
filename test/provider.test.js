@@ -28,5 +28,23 @@ test('DSH adapter accepts native fetch responses and sends Passport plus attribu
   const controller=new AbortController();controller.abort();
   await assert.rejects(async()=>{for await(const chunk of adapter.stream({signal:controller.signal})){}},e=>e.code==='ABORTED');
   assert.equal(calls,1);
+  let attempts=[],verificationCalls=0;
+  adapter.verify=async({onState})=>{verificationCalls++;onState('waiting-user');onState('verified');return {verified:true,fp:'verify_sdk_test_session'};};
+  globalThis.fetch=async(url,request)=>{
+   const body=JSON.parse(request.body);attempts.push({url:new URL(url),body});
+   if(attempts.length===1)return new Response(frame('STREAM_ERROR',{error_code:710022004,extra:{decision:{code:10000,type:'verify',detail:'not-for-logs'}}}),{headers:{'Content-Type':'text/event-stream'}});
+   assert.equal(new URL(url).searchParams.get('fp'),'verify_sdk_test_session');
+   assert.equal(body.ext.resend,'1');assert.notEqual(body.option.unique_key,attempts[0].body.option.unique_key);assert.deepEqual(body.messages,attempts[0].body.messages);
+   return new Response(frame('STREAM_CHUNK',{patch_op:[{patch_object:1,patch_value:{content_block:[{block_type:10000,block_id:'a',content:{text_block:{text:'resumed reply'}}}]}}]})+frame('SSE_REPLY_END',{end_type:1})+frame('SSE_REPLY_END',{end_type:3}),{headers:{'Content-Type':'text/event-stream'}});
+  };
+  const resumed=[];for await(const event of adapter.stream({model:'seed-lite-7b',messages:[]}))resumed.push(event);
+  assert.equal(resumed.find(e=>e.type==='text-delta').text,'resumed reply');assert.equal(verificationCalls,1);assert.equal(attempts.length,2);
+  const logs=JSON.stringify(adapter.diagnostics.list());assert.ok(logs.includes('verified'));assert.ok(!logs.includes('verify_sdk_test_session'));assert.ok(!logs.includes('not-for-logs'));
+  globalThis.fetch=async(url,request)=>{
+   assert.equal(new URL(url).searchParams.get('fp'),'verify_sdk_test_session');assert.equal(JSON.parse(request.body).ext.resend,undefined);
+   return new Response(frame('STREAM_CHUNK',{patch_op:[{patch_object:1,patch_value:{content_block:[{block_type:10000,block_id:'a',content:{text_block:{text:'next reply'}}}]}}]})+frame('SSE_REPLY_END',{end_type:1})+frame('SSE_REPLY_END',{end_type:3}),{headers:{'Content-Type':'text/event-stream'}});
+  };
+  for await(const event of adapter.stream({model:'seed-lite-7b',messages:[]})){}
+  assert.equal(verificationCalls,1);adapter.cancelRequests();assert.equal(adapter.verifiedSessions.size,0);
  }finally{globalThis.fetch=originalFetch;await rm(dir,{recursive:true,force:true});}
 });

@@ -34,12 +34,13 @@ export function apply(ctx,config={}){
       if(endpoint.endsWith('/cancel')){controller?.abort();await loginJob;return {ok:true,value:{cancelled:true}};}
       if(endpoint.endsWith('/logout')||endpoint.endsWith('/switch')){
         if(loginJob)throw Error('请先取消正在进行的登录。');
+        adapter.cancelRequests();
         if(endpoint.endsWith('/logout'))await accounts.logout(payload.id);else await accounts.switch(payload.id);
         adapter.invalidate();ctx.emit('llm/adapters-updated');return {ok:true,value:await accounts.list()};
       }
       if(endpoint.endsWith('/quota'))return {ok:true,value:await readQuota(config.credentialFile)};
       if(endpoint.endsWith('/models')){adapter.invalidate();return {ok:true,value:await adapter.entries()};}
-      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1-debug.1'}};
+      return {ok:true,value:{...await loginStatus(config.credentialFile),...await accounts.list(),loginState,loginPending:!!loginJob,version:'0.3.1-debug.2'}};
     }catch(error){return {ok:false,error:{code:'FEISHU_OPERATION',message:['请先取消正在进行的登录。','账号不存在。','账号登录已过期，请重新登录。'].includes(error.message)?error.message:'操作未完成，请检查登录状态。'}};}
   };
   ctx.inject(['connection'],child=>{
@@ -54,7 +55,7 @@ export function apply(ctx,config={}){
       }}));
     }
   });
-  ctx.effect(()=>()=>controller?.abort());
+  ctx.effect(()=>()=>{controller?.abort();adapter.cancelRequests();});
   ctx.inject(['commands'],commandCtx=>{
     commandCtx.effect(()=>commandCtx.commands.register({
       name:'feishu',description:'飞书豆包工作：登录、登录状态与企业模型目录',input:{hint:'login | status | models'},recordInput:false,
