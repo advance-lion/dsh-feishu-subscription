@@ -47,6 +47,7 @@ jobs:
     timeout-minutes: 10
     env:
       DSH_NATIVE_KEYRING_TEST: '1'
+      DSH_HOME: ${{ runner.temp }}/feishu-native-host-smoke
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,12 +55,22 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Prepare packed plugin in actual DSH for native vault checks
+        shell: bash
+        run: |
+          npm install -g @deepseek-ai/dsh@0.2.0-rc.2 pnpm@10.34.9 --ignore-scripts
+          npm pack --ignore-scripts
+          dsh --profile native-vault --from-default-profile web --dump-config > /dev/null
+          dsh plugin --profile native-vault add "$GITHUB_WORKSPACE/dsh-feishu-subscription-0.4.0.tgz"
+          echo "DSH_TEST_BIN=$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" >> "$GITHUB_ENV"
       - name: Install Secret Service on disposable Linux runner
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y gnome-keyring dbus-x11
       - name: Verify real macOS Keychain
         if: runner.os == 'macOS'
-        run: node --test test/native-keyring.test.js
+        run: |
+          node --test test/native-keyring.test.js
+          node scripts/host-smoke.mjs "$DSH_TEST_BIN" native-vault
       - name: Verify real Linux Secret Service
         if: runner.os == 'Linux'
         shell: bash
@@ -67,4 +78,5 @@ jobs:
           dbus-run-session -- bash -euc '
             node -e "process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"hex\"))" | gnome-keyring-daemon --unlock --components=secrets
             node --test test/native-keyring.test.js
+            node scripts/host-smoke.mjs "$DSH_TEST_BIN" native-vault
           '
