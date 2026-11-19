@@ -32,6 +32,8 @@
 
 **CLI / Web：**
 
+CLI 插件管理需要 `pnpm` 在 PATH 中（例如 `npm install -g pnpm@10.34.9`）。桌面版由应用管理安装依赖。
+
 ```powershell
 dsh plugin --profile <你的Profile> add <tgz文件绝对路径>
 dsh --profile <你的Profile>

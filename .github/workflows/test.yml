@@ -28,7 +28,7 @@ jobs:
           DSH_BROWSER_TEST: '1'
       - run: npm pack --ignore-scripts
       - name: Install official DSH host
-        run: npm install -g @deepseek-ai/dsh@0.2.0-rc.2 --ignore-scripts
+        run: npm install -g @deepseek-ai/dsh@0.2.0-rc.2 pnpm@10.34.9 --ignore-scripts
       - name: Install packed plugin into disposable DSH profile
         shell: bash
         run: |
