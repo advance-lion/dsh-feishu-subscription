@@ -25,5 +25,13 @@ test('adapter delivers prefixed tools, consumes host results, diagnoses invalid 
    await assert.rejects(()=>collect([]),e=>e.code===(mode==='bad-json'?'PROVIDER_TOOL_PROTOCOL':'PROVIDER_OUTPUT_LIMIT'));
   }
   assert.ok(a.diagnostics.list().rows.some(r=>r.category==='tool-protocol'));assert.ok(a.diagnostics.list().rows.some(r=>r.category==='output-limit'));
+  globalThis.fetch=async()=>{throw new TypeError('private network detail',{cause:{code:'ECONNRESET'}});};
+  await assert.rejects(()=>collect([]),{code:'PROVIDER_CONNECTION_CLOSED'});
+  assert.ok(a.diagnostics.list().rows.some(r=>r.category==='connection-closed'&&r.transportCode==='ECONNRESET'));
+  globalThis.fetch=async()=>new Response(chunk('partial without end markers'),{headers:{'Content-Type':'text/event-stream'}});
+  await assert.rejects(()=>collect([]),{code:'PROVIDER_STREAM_INCOMPLETE'});
+  assert.ok(a.diagnostics.list().rows.some(r=>r.errorCode==='SSE_COMPLETION_INCOMPLETE'&&r.hasText===true&&r.messageFinished===false));
+  a.entries=async()=>{throw new TypeError('fetch failed',{cause:{code:'ENOTFOUND'}});};
+  await assert.rejects(()=>a.resolveModel('feishu-subscription','fixture'),{code:'PROVIDER_CONNECTION_CLOSED'});
  }finally{globalThis.fetch=original;await rm(dir,{recursive:true,force:true});}
 });
