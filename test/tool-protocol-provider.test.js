@@ -31,6 +31,9 @@ test('adapter delivers prefixed tools, consumes host results, diagnoses invalid 
   globalThis.fetch=async()=>new Response(chunk('partial without end markers'),{headers:{'Content-Type':'text/event-stream'}});
   await assert.rejects(()=>collect([]),{code:'PROVIDER_STREAM_INCOMPLETE'});
   assert.ok(a.diagnostics.list().rows.some(r=>r.errorCode==='SSE_COMPLETION_INCOMPLETE'&&r.hasText===true&&r.messageFinished===false));
+  let oversizedSent=false;globalThis.fetch=async()=>{oversizedSent=true;throw Error('Must not transmit oversized history');};
+  await assert.rejects(()=>collect([{role:'user',content:[{type:'text',text:'a'.repeat(262145)}]}]),{code:'CONTEXT_WINDOW_EXCEEDED'});
+  assert.equal(oversizedSent,false);assert.ok(a.diagnostics.list().rows.some(r=>r.category==='input-limit'&&r.maxInputCharacters===262144&&r.inputCharacters>262144));
   a.entries=async()=>{throw new TypeError('fetch failed',{cause:{code:'ENOTFOUND'}});};
   await assert.rejects(()=>a.resolveModel('feishu-subscription','fixture'),{code:'PROVIDER_CONNECTION_CLOSED'});
  }finally{globalThis.fetch=original;await rm(dir,{recursive:true,force:true});}
