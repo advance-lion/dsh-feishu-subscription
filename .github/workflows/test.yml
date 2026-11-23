@@ -34,7 +34,7 @@ jobs:
         run: |
           export DSH_HOME="$RUNNER_TEMP/feishu-dsh-smoke"
           dsh --profile cross-platform --from-default-profile web --dump-config > /dev/null
-          dsh plugin --profile cross-platform add "$GITHUB_WORKSPACE/dsh-feishu-subscription-0.4.0.tgz"
+          dsh plugin --profile cross-platform add "$GITHUB_WORKSPACE/$(node scripts/package-name.mjs)"
           dsh --profile cross-platform --dump-config > host-config.yml
           node scripts/check-installed.mjs host-config.yml
           node scripts/host-smoke.mjs "$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" cross-platform
@@ -62,7 +62,7 @@ jobs:
           npm install -g @deepseek-ai/dsh@0.2.0-rc.2 pnpm@10.34.9 --ignore-scripts
           npm pack --ignore-scripts
           dsh --profile native-vault --from-default-profile web --dump-config > /dev/null
-          dsh plugin --profile native-vault add "$GITHUB_WORKSPACE/dsh-feishu-subscription-0.4.0.tgz"
+          dsh plugin --profile native-vault add "$GITHUB_WORKSPACE/$(node scripts/package-name.mjs)"
           echo "DSH_TEST_BIN=$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" >> "$GITHUB_ENV"
       - name: Install Secret Service on disposable Linux runner
         if: runner.os == 'Linux'

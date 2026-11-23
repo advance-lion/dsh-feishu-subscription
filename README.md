@@ -67,5 +67,6 @@ dsh --profile <你的Profile>
 - Linux 需要可用的 Secret Service，或配置固定的 `FEISHU_SUBSCRIPTION_VAULT_KEY`。具体步骤见[配置与使用详解](https://github.com/advance-lion/dsh-feishu-subscription/blob/main/docs/GUIDE.md)。
 - 当前仅支持文本；企业套餐总额和剩余额度尚未打通，显示的用量仅属于当前账号。
 - 归档不是“不保存历史”，运行中的任务可能短暂出现在飞书最近列表。上游分批返回时，正文显示也可能有停顿。
+- 工具请求不完整时会明确报错；诊断页可查看实际输入字节数、模型目录窗口和上游结束原因。目录声明的窗口大小不代表已验证的可用输入容量。
 
 登录凭据在本机加密保存；模型调用会将 DSH 提供的文本历史发送到豆包工作。更多配置、数据说明和排查方法见[使用详解](https://github.com/advance-lion/dsh-feishu-subscription/blob/main/docs/GUIDE.md)。
